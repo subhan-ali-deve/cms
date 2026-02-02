@@ -1,78 +1,144 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { SupabaseServer } from "@/lib/supabase/server";
-import { AuthOptions } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { SupabaseAdapter } from "@auth/supabase-adapter";
+import { createClient } from "@supabase/supabase-js";
+import { create } from "domain";
+import { SupabaseServerClient } from "@/lib/supabase/server";
 
-export const authOptions: AuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
+/**
+ * Admin client for NextAuth adapter
+ * This doesn't need cookies as it uses service role key
+ */
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
+);
 
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
+/**
+ * Supabase Adapter
+ * Handles users, accounts, sessions tables
+ */
+const adapter = SupabaseAdapter({
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+});
 
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-        const supabase = await SupabaseServer();
+/**
+ * Credentials Provider
+ * Uses Supabase Auth internally
+ */
+const credentialsProvider = Credentials({
+  name: "Credentials",
 
-
-        // 1️⃣ user lao from users table
-        const { data: user, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", credentials.email)
-          .single();
-
-        if (error || !user) return null;
-
-        // 2️⃣ password verify
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isValid) return null;
-
-        // 3️⃣ user return (IMPORTANT)
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
-      },
-    }),
-  ],
-
-  session: {
-    strategy: "jwt",
+  credentials: {
+    email: { label: "Email", type: "email" },
+    password: { label: "Password", type: "password" },
   },
 
-  callbacks: {
-    async jwt({ token, user }: { token: any, user: any }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
+  async authorize(credentials) {
+    if (!credentials?.email || !credentials?.password) return null;
 
-    async session({ session, token }: { session: any, token: any }) {
-      if (session.user) {
-        session.user.id = token.id;
+    try {
+      // 1 Try login
+      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+
+      // 2 If user does not exist  SIGN UP
+      if (error?.code === "invalid_credentials") {
+        const { data: signupData, error: signupError } =
+          await supabaseAdmin.auth.signUp({
+            email: credentials.email,
+            password: credentials.password,
+          });
+
+        if (signupError || !signupData.user) {
+          console.log("Signup error:", signupError);
+          return null;
+        }
+
+        
+      
+        console.log("Creating profile for user:", signupData.user.id);
+        const supabase = await SupabaseServerClient()
+        const { data: profileData, error: profileError } = await supabase
+        .from("users")
+        .insert(
+          {
+            id: signupData.user.id,
+            email: signupData.user.email,
+            name: signupData.user.email?.split("@")[0],
+            created_at: new Date().toISOString(),
+          }
+        );
+
+    if (profileError) {
+      console.log("Profile creation error:", profileError);
+      return null;
+    }
+
+    if (profileData) {
+      console.log("Profile data:", profileData);
+    } 
+    
+        return {
+          id: signupData.user.id,
+          email: signupData.user.email,
+          name: signupData.user.email?.split("@")[0],
+        };
+      }
+
+      
+      if (error || !data.user) {
+        console.error("Login error:", error);
+        return null;
+      }
+
+      return {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.email?.split("@")[0],
+      };
+    } catch (err) {
+      console.log("Authorize error:", err);
+      return null;
+    }
+  },
+});
+
+/**
+ * NextAuth Configuration
+ */
+export const authOptions = {
+  adapter,
+  providers: [credentialsProvider],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
       }
       return session;
     },
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id;
+      }
+      return token;
+    },
   },
-
   pages: {
-    signIn: "/login",
+    signIn: "/signup",
   },
-
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);

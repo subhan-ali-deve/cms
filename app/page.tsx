@@ -1,24 +1,19 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { redirect } from "next/navigation";
-import Link from "next/link";
+"use client";
 
-export default async function Home() {
-  const session = await getServerSession(authOptions);
+import { useSession } from "next-auth/react";
 
-  console.log("session", session);
+export default function Navbar() {
+  const { data: session, status } = useSession();
 
-  if (session) {
-    redirect("/");
-  }
-
-  redirect("/login");
+  if (status === "loading") return <p>Loading...</p>;
 
   return (
-    <div className="">
-      <h1> Home </h1>
-      <Link href="/login">Login</Link>
-      <Link href="/signup">Signup</Link>
+    <div>
+      {session ? (
+        <p>Hello {session.user?.email}</p>
+      ) : (
+        <p>Not logged in</p>
+      )}
     </div>
   );
 }

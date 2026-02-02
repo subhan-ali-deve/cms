@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { signIn } from "next-auth/react";
 
 type LoadingState = {
   loading: boolean;
@@ -29,12 +30,16 @@ export default function SignupPage() {
     console.log('Signup data:', formData);
     setLoading(true);
     try {
-        const response = await fetch('/api/signup', {
-            method: 'POST',
-            body: JSON.stringify(formData),
-        });
-        const data = await response.json();
-        console.log('Signup response:', data);
+   
+
+      signIn("credentials", {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        // callbackUrl to redirect after signup 
+        callbackUrl: "/dashboard",
+      });
+      
         toast.success('Signup successful');
         setLoading(false);
     } catch (error) {

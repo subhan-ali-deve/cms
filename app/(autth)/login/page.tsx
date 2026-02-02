@@ -22,7 +22,7 @@ export default  function LoginPage() {
     await signIn("credentials", {
         email: formData.email,
         password: formData.password,
-        callbackUrl: "/",
+        callbackUrl: "/dashboard",
       });
     }
     console.log('login data:', formData);
