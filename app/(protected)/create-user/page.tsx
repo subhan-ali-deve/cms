@@ -9,7 +9,7 @@ type LoadingState = {
   loading: boolean;
   setLoading: (loading: boolean) => void;
 }
-export default function SignupPage() {
+export default function CreateUserPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -30,21 +30,33 @@ export default function SignupPage() {
     console.log('Signup data:', formData);
     setLoading(true);
     try {
-   
+   if (formData.password.length < 8) {
+  toast.error("Password must be at least 8 characters");
+  return;
+}
 
-      signIn("credentials", {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        // callbackUrl to redirect after signup 
-        callbackUrl: "/dashboard",
+      const response = await fetch('/api/create-new-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       });
-      
-        toast.success('Signup successful');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log("error in creates user:", errorData);
+        toast.error(errorData.error || 'create user failed');
         setLoading(false);
+        return;
+      }
+      if (response.ok) {
+        
+        toast.success('User created successfully');
+        setLoading(false);
+      }
     } catch (error) {
-        toast.error('Signup failed');
-        console.log("Error in signup", error);
+        toast.error('An error occurred. Please try again.');
+        console.log("error in create user", error);
         setLoading(false);
     }
   };
@@ -54,7 +66,7 @@ export default function SignupPage() {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Create your account
+          Create new user
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -108,17 +120,17 @@ export default function SignupPage() {
 
           <div className="block mb-2">
             
-            <span className="text-gray-500">Already have an account? </span>
-            <Link href="/login">Login</Link>
+            {/* <span className="text-gray-500">Already have an account? </span> */}
+            {/* <Link href="/login">Login</Link> */}
 
           </div>
 
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              className="group cursor-pointer relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
             >
-              {loading ? 'Signing up...' : 'Sign Up'}
+              {loading ? 'creating user...' : 'Add User'}
             </button>
           </div>
         </form>
