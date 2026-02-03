@@ -39,6 +39,7 @@ const credentialsProvider = Credentials({
   credentials: {
     email: { label: "Email", type: "email" },
     password: { label: "Password", type: "password" },
+    name : { label: "Name", type: "text" },
   },
 
   async authorize(credentials) {
@@ -46,6 +47,7 @@ const credentialsProvider = Credentials({
 
     try {
       // 1 Try login
+      console.log("Attempting to sign in user:", credentials.name);
       const { data, error } = await supabaseAdmin.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
@@ -57,6 +59,12 @@ const credentialsProvider = Credentials({
           await supabaseAdmin.auth.signUp({
             email: credentials.email,
             password: credentials.password,
+            options:{
+              data: {
+                name: credentials.name
+
+              }
+            }
           });
 
         if (signupError || !signupData.user) {
@@ -66,27 +74,27 @@ const credentialsProvider = Credentials({
 
         
       
-        console.log("Creating profile for user:", signupData.user.id);
-        const supabase = await SupabaseServerClient()
-        const { data: profileData, error: profileError } = await supabase
-        .from("users")
-        .insert(
-          {
-            id: signupData.user.id,
-            email: signupData.user.email,
-            name: signupData.user.email?.split("@")[0],
-            created_at: new Date().toISOString(),
-          }
-        );
+    //     console.log("Creating profile for user:", signupData.user.id);
+    //     const supabase = await SupabaseServerClient()
+    //     const { data: profileData, error: profileError } = await supabase
+    //     .from("users")
+    //     .insert(
+    //       {
+    //         id: signupData.user.id,
+    //         email: signupData.user.email,
+    //         name: signupData.user.email?.split("@")[0],
+    //         created_at: new Date().toISOString(),
+    //       }
+    //     );
 
-    if (profileError) {
-      console.log("Profile creation error:", profileError);
-      return null;
-    }
+    // if (profileError) {
+    //   console.log("Profile creation error:", profileError);
+    //   return null;
+    // }
 
-    if (profileData) {
-      console.log("Profile data:", profileData);
-    } 
+    // if (profileData) {
+    //   console.log("Profile data:", profileData);
+    // } 
     
         return {
           id: signupData.user.id,
